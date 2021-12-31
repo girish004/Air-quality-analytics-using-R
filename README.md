@@ -23,3 +23,9 @@ The dataset contains the following features :
 10. spm: Suspended Particulate Matter measured.
 11. location monitoring station: It indicates the location of the monitoring area.
 12. pm2 5: It represents the value of particulate matter measured.
+
+# Further possible works
+
+1. For the repository.
+2. Make changes in the .RMD file by creating a new code chunk'
+3. Knit the .RMD file and view the analysis
