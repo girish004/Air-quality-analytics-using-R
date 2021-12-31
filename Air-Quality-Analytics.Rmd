@@ -1,0 +1,175 @@
+---
+title: "FDA_project Air Quality Analytics"
+team: "SASG-12"
+date: "05/12/2021"
+output: html_document
+---
+### 1. Importing the dataset
+```{r, echo=TRUE}
+library(tidyverse)
+library(GGally)
+library(Metrics)
+library(ggplot2)
+library(ISLR)
+library(mosaic)
+library(Hmisc)
+library(ggcorrplot)
+data<-read.csv("Air_Pollution.csv")
+summary(data)
+```
+### 2. Data cleaning (Analysis)
+```{r, echo=TRUE}
+cat("Printing the % of null values in each column\n")
+lapply(data,function(x) { length(which(is.na(x)))*100/nrow(data)})
+```
+### 3. Furthut cleaning
+##### It is evident that there are so many null values in the given dataset
+* The data contains 2 date columns, so let us omit one
+* Removing columns having more than 50% of null values
+* Remove the serial number
+```{r, echo=TRUE}
+data=subset(data,select=-c(sampling_date,stn_code,spm,pm2_5))
+head(data,n=10)
+```
+### 4. Viewing the number of unique values in each column 
+```{r, echo=TRUE}
+lapply(data,function(x) { length(unique(x))})
+```
+### 5. Removal of outliers in so2 variable
+```{r, echo=TRUE}
+outliers<-boxplot(data$so2)$out
+data<-data[-which(data$so2 %in% outliers),]
+boxplot(data$so2)
+```
+### 6. Removal of outliers in no2 variable
+```{r,echo=TRUE}
+outliers<-boxplot(data$no2)$out
+data<-data[-which(data$no2 %in% outliers),]
+boxplot(data$no2)
+```
+### 7. Removal of outliers in rspm variable
+```{r,echo=TRUE}
+outliers<-boxplot(data$rspm)$out
+data<-data[-which(data$rspm %in% outliers),]
+boxplot(data$rspm)
+```
+### Imputing numerical data (Using median values to impute in numerical column)
+```{r,echo=TRUE}
+data%>%summarise(avg=mean(data$so2,na.rm = TRUE),md=median(data$so2,na.rm = TRUE))
+data%>%summarise(avg=mean(data$no2,na.rm = TRUE),md=median(data$no2,na.rm = TRUE))
+data%>%summarise(avg=mean(data$rspm,na.rm = TRUE),md=median(data$rspm,na.rm = TRUE))
+data <- data%>%
+  mutate(so2=replace(so2,is.na(so2),median(so2,na.rm = TRUE)))
+cat("Sum of null values in so2 column",sum(is.na(data$so2)),"\n")
+data <- data%>%
+  mutate(no2=replace(no2,is.na(no2),median(no2,na.rm = TRUE)))
+cat("Sum of null values in no2 column",sum(is.na(data$no2)),"\n")
+data <- data%>%
+  mutate(rspm=replace(rspm,is.na(rspm),median(rspm,na.rm = TRUE)))
+cat("Sum of null values in rspm column",sum(is.na(data$rspm)),"\n")
+```
+
+### Impute categorical data (using mode to impute in categorical column and viewing the number of null values in each column)
+```{r,echo=TRUE}
+# Type
+val <- unique(data$type[!is.na(data$type)])
+my_mode <- val[which.max(tabulate(match(data$type, val)))]
+data$type[is.na(data$type)] <- my_mode 
+# Location
+val <- unique(data$location[!is.na(data$location)])
+my_mode <- val[which.max(tabulate(match(data$location, val)))]
+data$location[is.na(data$location)] <- my_mode 
+# Agency
+val <- unique(data$agency[!is.na(data$agency)])
+my_mode <- val[which.max(tabulate(match(data$agency, val)))]
+data$agency[is.na(data$agency)] <- my_mode 
+# location_monitoring_station
+val <- unique(data$location_monitoring_station[!is.na(data$location_monitoring_station)])
+my_mode <- val[which.max(tabulate(match(data$location_monitoring_station, val)))]
+data$location_monitoring_station[is.na(data$location_monitoring_station)] <- my_mode
+
+lapply(data,function(x) { length(which(is.na(x)))*100/nrow(data)})
+```
+#### Graphs and analytics
+```{r,echo=TRUE}
+print("States where air pollution is tested")
+table(data$state)
+barplot(table(data$state),xlab="State",ylab="Frequency",main="Frequency chart")
+print("Location where air pollution is tested")
+table(data$location)
+barplot(table(data$location),xlab="State",ylab="Frequency",main="Frequency chart")
+print("Location monitoring station where air pollution is tested")
+table(data$location_monitoring_station)
+barplot(table(data$location_monitoring_station),xlab="State",ylab="Frequency",main="Frequency chart")
+print("Agency which tested the air pollution")
+table(data$agency)
+barplot(table(data$agency),xlab="State",ylab="Frequency",main="Frequency chart")
+pie(table(data$type))
+```
+### Correlation plot (Correlation is not relavent since the corr is not greater than 0.7 and not less than -0.7, this cannot be used for prediction since none of the variable is dependent)
+```{r,echo=TRUE}
+num_data <- data %>%select_if(is.numeric)
+ggcorr(num_data, label = T, color = "black",layout.exp = 5,low = "blue", mid = "white", high = "violet",name = "Correlation")
+```
+### General statistics
+```{r,echo=TRUE}
+library(e1071)
+library(tigerstats)
+cat("Quantile ranges\n")
+quantile(data$rspm)
+cat("IQR function",IQR(data$rspm),"\n")
+cat("Variance: ",var(data$rspm),"\n")
+cat("Standard deviation: ",sd(data$rspm),"\n")
+cat("Second central of rspm: ",moment(m111survey$height, order=2, center=TRUE))
+cat("Skewness: ",skewness(data$rspm),"\n")
+cat("Kurtosis: ",kurtosis(data$rspm),"\n")
+```
+
+### Replacing the numerical values with categorical values for building the linear model
+```{r,echo=TRUE}
+library(corrplot)
+library(RColorBrewer)
+data$state<-as.factor(data$state)
+data$location<-as.factor(data$location)
+data$agency<-as.factor(data$agency)
+data$type<-as.factor(data$type)
+data$date<-as.factor(data$date)
+data$location_monitoring_station<-as.factor(data$location_monitoring_station)
+data<-sapply(data,unclass)
+```
+### Converting the data to dataframe and plotting a sample scatterplot between independent variables
+```{r,echo=TRUE}
+library("ggpubr")
+cols<-list("state","location","agency","type","so2","no2","rspm","location_monitoring_station")
+data<-as.data.frame(data)
+plot(data$location, data$rspm, main = "Scatter Plot",xlab = "s02", ylab = "rspm",pch = 19, frame = FALSE)
+```
+### Dividing the trainig and testing data
+```{r,echo=TRUE}
+sample <- sample(1:nrow(data), ceiling(0.8*nrow(data)))
+train <- data[sample,]
+head(train)
+test <- data[-sample,]
+head(test)
+test <- data[-sample,]
+head(test)
+```
+### Building a linear model, viewing the summary(Which gives a higher f-score and pvalue which makes it a bad model) and plotting the model, which doesn't make sense since the variables are independent
+```{r,echo=TRUE}
+model <- lm(rspm~state+location+agency+type+so2+no2+location_monitoring_station, data = train)
+summary(model)
+plot(model)
+```
+### Predicting the value using the built linear model and finding the errors in the prediction
+```{r,echo=TRUE}
+pred <- predict(model,test)
+library(caret)
+cat("R2 value is: ",R2(pred, test$rspm))
+cat("RMSE value is: ",rmse(pred, test$rspm))
+cat("MAE value is: ",mae(pred,test$rspm))
+```
+### Since the errors are way too high, this can't be a perfect dataset which can be used for prediction. The variables are not correlated even after removing the outliers and further data cleaning.
+### But certain analysis can be made which are plotted above
+# End
+
+
